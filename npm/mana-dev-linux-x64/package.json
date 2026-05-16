@@ -1,0 +1,12 @@
+{
+  "name": "@mana/dev-linux-x64",
+  "version": "1.0.0",
+  "description": "Mana dev toolchain binaries for Linux x64",
+  "license": "ISC",
+  "os": ["linux"],
+  "cpu": ["x64"],
+  "files": [
+    "mana-dev",
+    "mana-watcher"
+  ]
+}

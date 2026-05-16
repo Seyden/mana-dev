@@ -1,0 +1,16 @@
+[build]
+# Target-specific optimizations for maximum performance
+rustflags = [
+    "-C", "target-cpu=native",        # Optimize for the current CPU
+    "-C", "target-feature=+crt-static", # Static CRT linking
+]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    "-C", "target-cpu=native",        # Use all available CPU features
+    "-C", "target-feature=+crt-static", # Static CRT linking
+    "-C", "link-arg=/SUBSYSTEM:CONSOLE", # Console subsystem
+    "-C", "link-arg=/OPT:REF",        # Remove unused functions
+    "-C", "link-arg=/OPT:ICF",        # Identical COMDAT folding
+]
+

@@ -1,0 +1,23 @@
+{
+  "name": "@mana/dev",
+  "version": "1.0.0",
+  "description": "Mana development toolchain — build and serve .mana source packages",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/mana-dev"
+  },
+  "bin": {
+    "mana-dev": "bin/mana-dev"
+  },
+  "files": [
+    "bin/"
+  ],
+  "optionalDependencies": {
+    "@mana/dev-win32-x64": "1.0.0",
+    "@mana/dev-darwin-x64": "1.0.0",
+    "@mana/dev-darwin-arm64": "1.0.0",
+    "@mana/dev-linux-x64": "1.0.0",
+    "@mana/dev-linux-arm64": "1.0.0"
+  }
+}

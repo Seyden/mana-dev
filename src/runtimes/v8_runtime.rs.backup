@@ -1,0 +1,297 @@
+use anyhow::{Result, anyhow};
+use serde_json::Value;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::sync::mpsc;
+
+// ===== GLOBAL EMULATOR MANAGEMENT =====
+
+static EMULATOR_CODE: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+
+fn get_emulator_code() -> Option<&'static String> {
+    EMULATOR_CODE.get_or_init(|| {
+        match std::fs::read_to_string("mana_emulator.js") {
+            Ok(code) => {
+                println!("📦 Loaded mana emulator ({} bytes)", code.len());
+                Some(code)
+            }
+            Err(e) => {
+                eprintln!("⚠️ Failed to load mana_emulator.js: {}", e);
+                None
+            }
+        }
+    }).as_ref()
+}
+
+
+// ===== V8 ENGINE MANAGEMENT =====
+
+struct V8Engine {
+    isolate: v8::OwnedIsolate,
+    global_context: v8::Global<v8::Context>,
+}
+
+impl V8Engine {
+    fn new(thread_id: usize) -> Self {
+        let create_params = v8::CreateParams::default();
+        let mut isolate = v8::Isolate::new(create_params);
+        
+        let global_context = {
+            let init_start = std::time::Instant::now();
+            let handle_scope = &mut v8::HandleScope::new(&mut isolate);
+            let global_template = v8::ObjectTemplate::new(handle_scope);
+            global_template.set_internal_field_count(0);
+            
+            let mut context_options = v8::ContextOptions::default();
+            context_options.global_template = Some(global_template);
+            let context = v8::Context::new(handle_scope, context_options);
+            let scope = &mut v8::ContextScope::new(handle_scope, context);
+            let context_time = init_start.elapsed();
+
+            // Load emulator immediately during context creation
+            let emulator_time = Self::load_emulator_in_scope(scope)
+                .map(|_| init_start.elapsed() - context_time)
+                .unwrap_or_else(|_| std::time::Duration::from_nanos(0));
+
+            let total_init_time = init_start.elapsed();
+            let debug_enabled = DEBUG_MODE.get().copied().unwrap_or(false);
+            if debug_enabled {
+                if emulator_time.as_millis() > 0 {
+                    println!("🧵 Thread {} init: Context={:.1}ms | Emulator={:.1}ms | Total={:.1}ms", 
+                             thread_id,
+                             context_time.as_secs_f64() * 1000.0,
+                             emulator_time.as_secs_f64() * 1000.0,
+                             total_init_time.as_secs_f64() * 1000.0);
+                } else {
+                    println!("🧵 Thread {} init: Context={:.1}ms | No emulator | Total={:.1}ms", 
+                             thread_id,
+                             context_time.as_secs_f64() * 1000.0,
+                             total_init_time.as_secs_f64() * 1000.0);
+                }
+            }
+
+            v8::Global::new(scope, context)
+        };
+        
+        Self { 
+            isolate, 
+            global_context,
+        }
+    }
+
+
+    fn execute_script(&mut self, js_code: &str) -> Result<Value> {
+        let handle_scope = &mut v8::HandleScope::new(&mut self.isolate);
+        let context = v8::Local::new(handle_scope, &self.global_context);
+        let scope = &mut v8::ContextScope::new(handle_scope, context);
+
+        // Emulator is already loaded during context creation - no lazy loading needed!
+
+        // Execute the mana script
+        let code_str = v8::String::new(scope, js_code).unwrap();
+        let script = v8::Script::compile(scope, code_str, None).unwrap();
+        script.run(scope).ok_or_else(|| anyhow!("Failed to execute mana script"))?;
+        
+        // Extract target info
+        let extract_code = v8::String::new(scope, "JSON.stringify(emulate(this.ManaPackage.Target).info)").unwrap();
+        let extract_script = v8::Script::compile(scope, extract_code, None).unwrap();
+        let result = extract_script.run(scope).ok_or_else(|| anyhow!("Failed to execute target extraction"))?;
+
+        // Convert to JSON
+        let json_str = result.to_string(scope).unwrap().to_rust_string_lossy(scope);
+        let parsed_result = serde_json::from_str(&json_str)
+            .map_err(|e| anyhow!("Failed to parse evaluation result as JSON: {}", e))?;
+
+        Ok(parsed_result)
+    }
+
+    fn load_emulator_in_scope(scope: &mut v8::ContextScope<v8::HandleScope>) -> Result<()> {
+        if let Some(emulator_code) = get_emulator_code() {
+            let code_str = v8::String::new(scope, emulator_code).unwrap();
+            let script = v8::Script::compile(scope, code_str, None).unwrap();
+            script.run(scope).ok_or_else(|| anyhow!("Failed to execute mana emulator"))?;
+        } else {
+            return Err(anyhow!("Mana emulator not available"));
+        }
+        Ok(())
+    }
+}
+
+// ===== SCRIPT EXECUTION ABSTRACTION =====
+
+pub struct ManaScriptExecutor {
+    engine: V8Engine,
+}
+
+impl ManaScriptExecutor {
+    fn new(thread_id: usize) -> Self {
+        let engine = V8Engine::new(thread_id);
+        Self { engine }
+    }
+
+    fn execute_mana_script(&mut self, js_code: &str, task_id: usize, queue_wait_time: std::time::Duration) -> Result<Value> {
+        let execution_start = std::time::Instant::now();
+        let execution_start_ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        
+        let result = self.engine.execute_script(js_code);
+        
+        let execution_time = execution_start.elapsed();
+        let execution_end_ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        
+        let debug_enabled = DEBUG_MODE.get().copied().unwrap_or(false);
+        if debug_enabled && task_id < 15 {
+            println!("🔍 Task #{}: [{}→{}] Queue={:.1}ms | Execution={:.1}ms | Total={:.1}ms", 
+                     task_id,
+                     execution_start_ts,
+                     execution_end_ts,
+                     queue_wait_time.as_secs_f64() * 1000.0,
+                     execution_time.as_secs_f64() * 1000.0,
+                     (queue_wait_time + execution_time).as_secs_f64() * 1000.0);
+        }
+        
+        result
+    }
+}
+
+// ===== THREAD POOL MANAGEMENT =====
+
+struct ExecutionTask {
+    js_code: String,
+    response_sender: tokio::sync::oneshot::Sender<Result<Value>>,
+    task_id: usize,
+    enqueue_time: std::time::Instant,
+}
+
+struct V8ThreadPool {
+    task_sender: mpsc::Sender<ExecutionTask>,
+}
+
+impl V8ThreadPool {
+    fn new(pool_size: usize) -> Self {
+        let (task_sender, task_receiver) = mpsc::channel::<ExecutionTask>();
+        let task_receiver = Arc::new(Mutex::new(task_receiver));
+
+        for thread_id in 0..pool_size {
+            let receiver = Arc::clone(&task_receiver);
+            thread::spawn(move || {
+                let mut executor = ManaScriptExecutor::new(thread_id);
+                
+                let debug_enabled = DEBUG_MODE.get().copied().unwrap_or(false);
+                if debug_enabled {
+                    println!("🧵 Thread {} initialized with reusable V8 isolate + @mana-app/emulator", thread_id);
+                }
+                
+                loop {
+                    let task = {
+                        let receiver = receiver.lock().unwrap();
+                        receiver.recv()
+                    };
+
+                    match task {
+                        Ok(task) => {
+                            let dequeue_time = std::time::Instant::now();
+                            let queue_wait_time = dequeue_time.duration_since(task.enqueue_time);
+                            
+                            let result = executor.execute_mana_script(
+                                &task.js_code,
+                                task.task_id,
+                                queue_wait_time
+                            );
+                            let _ = task.response_sender.send(result);
+                        }
+                        Err(_) => break,
+                    }
+                }
+            });
+        }
+
+        Self { task_sender }
+    }
+
+    async fn execute(&self, js_code: String, task_id: usize) -> Result<Value> {
+        let (response_sender, response_receiver) = tokio::sync::oneshot::channel();
+        let task = ExecutionTask {
+            js_code,
+            response_sender,
+            task_id,
+            enqueue_time: std::time::Instant::now(),
+        };
+
+        self.task_sender.send(task).map_err(|_| anyhow!("Thread pool is shut down"))?;
+        response_receiver.await.map_err(|_| anyhow!("Worker thread disconnected"))?
+    }
+}
+
+// ===== GLOBAL CONFIGURATION =====
+
+static THREAD_POOL: std::sync::OnceLock<V8ThreadPool> = std::sync::OnceLock::new();
+static TASK_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+static THREAD_CONFIG: std::sync::OnceLock<(usize, usize)> = std::sync::OnceLock::new();
+static DEBUG_MODE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+fn initialize_v8_platform(pool_size: usize) {
+    let v8_background_threads = if pool_size > 12 {
+        (pool_size / 2).min(12)
+    } else {
+        pool_size.max(2)
+    };
+    
+    let platform = v8::new_default_platform(v8_background_threads as u32, false).make_shared();
+    v8::V8::initialize_platform(platform);
+    v8::V8::initialize();
+    
+    // Pre-load emulator code once during platform initialization
+    get_emulator_code();
+}
+
+fn get_thread_pool_with_size(requested_threads: usize, task_count: usize) -> &'static V8ThreadPool {
+    THREAD_POOL.get_or_init(|| {
+        let cpu_cores = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4);
+        
+        let pool_size = requested_threads
+            .min(task_count)
+            .max(1);
+            
+        let v8_background_threads = if pool_size > 12 {
+            (pool_size / 2).min(12)
+        } else {
+            pool_size.max(2)
+        };
+        
+        initialize_v8_platform(pool_size);
+        
+        println!("🧵 Initializing V8 thread pool with {} threads + {} background threads (requested: {}, tasks: {}, CPU cores: {})", 
+                 pool_size, v8_background_threads, requested_threads, task_count, cpu_cores);
+        
+        V8ThreadPool::new(pool_size)
+    })
+}
+
+fn get_thread_pool() -> &'static V8ThreadPool {
+    let (requested_threads, task_count) = THREAD_CONFIG.get().copied().unwrap_or((4, 1));
+    get_thread_pool_with_size(requested_threads, task_count)
+}
+
+// ===== PUBLIC API =====
+
+pub fn configure_thread_pool(requested_threads: usize, task_count: usize) {
+    THREAD_CONFIG.set((requested_threads, task_count)).ok();
+}
+
+pub fn configure_debug_mode(debug: bool) {
+    DEBUG_MODE.set(debug).ok();
+}
+
+pub async fn execute_and_get_target_info(js_code: &str) -> Result<Value> {
+    let task_id = TASK_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let pool = get_thread_pool();
+    pool.execute(js_code.to_string(), task_id).await
+}

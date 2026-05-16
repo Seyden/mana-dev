@@ -1,0 +1,44 @@
+# Rust
+/target/
+Cargo.lock
+
+# Go build artifacts
+watcher/*.exe
+watcher/mana-watcher
+
+# npm platform binaries (populated by CI, never committed)
+npm/mana-dev-win32-x64/mana-dev.exe
+npm/mana-dev-win32-x64/mana-watcher.exe
+npm/mana-dev-darwin-x64/mana-dev
+npm/mana-dev-darwin-x64/mana-watcher
+npm/mana-dev-darwin-arm64/mana-dev
+npm/mana-dev-darwin-arm64/mana-watcher
+npm/mana-dev-linux-x64/mana-dev
+npm/mana-dev-linux-x64/mana-watcher
+npm/mana-dev-linux-arm64/mana-dev
+npm/mana-dev-linux-arm64/mana-watcher
+
+# Main package resolved bin/ (symlinks created by install)
+npm/mana-dev/bin/
+
+# Build temp files
+.mana-temp/
+**/.mana-temp/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Logs and scratch
+timing.log
+*.log
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db

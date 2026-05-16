@@ -1,0 +1,138 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rust_target: x86_64-pc-windows-msvc
+            go_os: windows
+            go_arch: amd64
+            npm_pkg: mana-dev-win32-x64
+            mana_dev_bin: mana-dev.exe
+            mana_watcher_bin: mana-watcher.exe
+
+          - os: macos-13        # Intel runner
+            rust_target: x86_64-apple-darwin
+            go_os: darwin
+            go_arch: amd64
+            npm_pkg: mana-dev-darwin-x64
+            mana_dev_bin: mana-dev
+            mana_watcher_bin: mana-watcher
+
+          - os: macos-latest    # Apple Silicon runner
+            rust_target: aarch64-apple-darwin
+            go_os: darwin
+            go_arch: arm64
+            npm_pkg: mana-dev-darwin-arm64
+            mana_dev_bin: mana-dev
+            mana_watcher_bin: mana-watcher
+
+          - os: ubuntu-latest
+            rust_target: x86_64-unknown-linux-gnu
+            go_os: linux
+            go_arch: amd64
+            npm_pkg: mana-dev-linux-x64
+            mana_dev_bin: mana-dev
+            mana_watcher_bin: mana-watcher
+
+          - os: ubuntu-latest
+            rust_target: aarch64-unknown-linux-gnu
+            go_os: linux
+            go_arch: arm64
+            npm_pkg: mana-dev-linux-arm64
+            mana_dev_bin: mana-dev
+            mana_watcher_bin: mana-watcher
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Rust ──────────────────────────────────────────────────────────────
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.rust_target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.rust_target }}
+
+      - name: Build mana-dev (Rust)
+        run: cargo build --release --bin mana-dev --target ${{ matrix.rust_target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+      # ── Go ────────────────────────────────────────────────────────────────
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Build mana-watcher (Go)
+        working-directory: watcher
+        run: go build -o ${{ matrix.mana_watcher_bin }} .
+        env:
+          GOOS: ${{ matrix.go_os }}
+          GOARCH: ${{ matrix.go_arch }}
+          CGO_ENABLED: "0"
+
+      # ── Assemble npm platform package ─────────────────────────────────────
+      - name: Copy binaries into npm platform package
+        shell: bash
+        run: |
+          cp target/${{ matrix.rust_target }}/release/${{ matrix.mana_dev_bin }} \
+             npm/${{ matrix.npm_pkg }}/${{ matrix.mana_dev_bin }}
+          cp watcher/${{ matrix.mana_watcher_bin }} \
+             npm/${{ matrix.npm_pkg }}/${{ matrix.mana_watcher_bin }}
+          chmod +x npm/${{ matrix.npm_pkg }}/${{ matrix.mana_dev_bin }} || true
+          chmod +x npm/${{ matrix.npm_pkg }}/${{ matrix.mana_watcher_bin }} || true
+
+      # ── Publish platform package ──────────────────────────────────────────
+      - name: Publish @mana/${{ matrix.npm_pkg }}
+        working-directory: npm/${{ matrix.npm_pkg }}
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Setup Node for publish
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+  publish-main:
+    name: Publish @mana/dev
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish @mana/dev
+        working-directory: npm/mana-dev
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

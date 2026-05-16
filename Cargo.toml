@@ -1,0 +1,95 @@
+[package]
+name = "mana-runtime-compare"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "mana-runtime-compare"
+path = "src/main.rs"
+
+[[bin]]
+name = "mana-dev"
+path = "src/dev.rs"
+
+
+[dependencies]
+# V8 runtime (latest version)
+v8 = "137.2.0"
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Async utilities
+futures = "0.3"
+
+# JSON handling
+serde_json = { version = "1.0", features = ["preserve_order"] }
+serde = { version = "1.0", features = ["derive"] }
+indexmap = { version = "2.0", features = ["serde"] }
+
+# Hashing for content verification
+sha2 = "0.10"
+
+# Error handling
+anyhow = "1.0"
+
+# Timing
+instant = "0.1"
+
+# Command line interface
+clap = { version = "4.0", features = ["derive"] }
+
+# HTTP server for serve command
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["fs", "cors"] }
+
+# Network utilities
+local-ip-address = "0.6"
+
+# Process spawning
+tokio-process = "0.2"
+
+# Date/time for logging
+chrono = { version = "0.4", features = ["serde"] }
+
+# Colored terminal output
+colored = "2.0"
+
+# JavaScript bundler - Local rolldown for debugging (commented out - not needed)
+# rolldown = { path = "rolldown_debug/crates/rolldown" }
+# rolldown_common = { path = "rolldown_debug/crates/rolldown_common" }
+
+
+[target.'cfg(windows)'.dependencies]
+# Windows-specific libraries for V8
+winapi = { version = "0.3", features = ["winreg", "evntrace"] }
+
+[build-dependencies]
+# Build configuration for V8
+cc = "1.0"
+
+[profile.release]
+# Optimize for maximum speed
+opt-level = 3           # Maximum optimization for speed
+# lto = "fat"             # Aggressive Link Time Optimization across all crates
+codegen-units = 1       # Single codegen unit for maximum optimization
+panic = "abort"         # Faster panic handling (no unwinding)
+debug = false           # Disable debug symbols for speed
+# strip = true            # Strip symbols for smaller, faster binary
+overflow-checks = false # Disable integer overflow checks for speed
+rpath = false           # Disable rpath for smaller binary
+
+# Fast compilation profile for development
+[profile.dev-fast]
+inherits = "release"
+opt-level = 1           # Basic optimizations for faster compilation
+codegen-units = 16      # More codegen units for parallel compilation
+incremental = true      # Enable incremental compilation
+
+# Additional CPU-specific optimizations
+[profile.release.build-override]
+opt-level = 3
+codegen-units = 1
+
+
