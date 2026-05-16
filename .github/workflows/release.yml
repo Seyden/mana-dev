@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  tag:
-    name: Create version tag
+  check-version:
+    name: Check if version is new
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get_version.outputs.version }}
@@ -37,18 +37,10 @@ jobs:
             echo "tag_exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create and push tag
-        if: steps.check_tag.outputs.tag_exists == 'false'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ steps.get_version.outputs.version }}"
-          git push origin "v${{ steps.get_version.outputs.version }}"
-
   build:
     name: Build ${{ matrix.target }}
-    needs: tag
-    if: needs.tag.outputs.tag_exists == 'false'
+    needs: check-version
+    if: needs.check-version.outputs.tag_exists != 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -157,10 +149,25 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+  tag:
+    name: Create version tag
+    needs: [check-version, build]
+    if: needs.check-version.outputs.tag_exists != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ needs.check-version.outputs.version }}"
+          git push origin "v${{ needs.check-version.outputs.version }}"
+
   publish-main:
-    name: Publish @mana/dev
-    needs: [tag, build]
-    if: needs.tag.outputs.tag_exists == 'false'
+    name: Publish @mana-app/dev
+    needs: [check-version, tag]
+    if: needs.check-version.outputs.tag_exists != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
