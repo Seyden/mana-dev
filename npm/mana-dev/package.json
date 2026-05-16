@@ -1,6 +1,6 @@
 {
-  "name": "@mana/dev",
-  "version": "1.0.0",
+  "name": "@mana-app/dev",
+  "version": "0.1.0",
   "description": "Mana development toolchain — build and serve .mana source packages",
   "license": "ISC",
   "repository": {
@@ -14,10 +14,10 @@
     "bin/"
   ],
   "optionalDependencies": {
-    "@mana/dev-win32-x64": "1.0.0",
-    "@mana/dev-darwin-x64": "1.0.0",
-    "@mana/dev-darwin-arm64": "1.0.0",
-    "@mana/dev-linux-x64": "1.0.0",
-    "@mana/dev-linux-arm64": "1.0.0"
+    "@mana-app/dev-win32-x64": "0.1.0",
+    "@mana-app/dev-darwin-x64": "0.1.0",
+    "@mana-app/dev-darwin-arm64": "0.1.0",
+    "@mana-app/dev-linux-x64": "0.1.0",
+    "@mana-app/dev-linux-arm64": "0.1.0"
   }
 }

@@ -1,11 +1,11 @@
 # mana-dev
 
-Build toolchain for [Mana](https://github.com/your-org/mana) source packages. Compiles TypeScript sources into distributable `.mana` bundles and exposes an HTTP server that the Mana app can point to during development — serving your sources and receiving log output in real time.
+Build toolchain for [Mana](https://github.com/Mana-iOS/) source packages. Compiles TypeScript sources into distributable `.mana` bundles and exposes an HTTP server that the Mana app can point to during development — serving your sources and receiving log output in real time.
 
 ## Installation
 
 ```bash
-npm install -D @mana/dev
+npm install -D @mana-app/dev
 ```
 
 No additional runtime dependencies. The correct native binary for your platform is installed automatically.
@@ -110,10 +110,10 @@ dist/
 
 ## Writing a source
 
-See the [@mana/types](https://github.com/your-org/mana-types) repository for full documentation on writing sources and trackers, available interfaces, and required methods.
+See the [@mana-app/types](https://github.com/Mana-iOS/mana-types) repository for full documentation on writing sources and trackers, available interfaces, and required methods.
 
 ```bash
-npm install -D @mana/types
+npm install -D @mana-app/types
 ```
 
 ## Development (contributing)
@@ -167,8 +167,8 @@ Requires an `NPM_TOKEN` secret configured in the repository settings.
 
 | Platform | Package |
 |----------|---------|
-| Windows x64 | `@mana/dev-win32-x64` |
-| macOS x64 | `@mana/dev-darwin-x64` |
-| macOS ARM64 (Apple Silicon) | `@mana/dev-darwin-arm64` |
-| Linux x64 | `@mana/dev-linux-x64` |
-| Linux ARM64 | `@mana/dev-linux-arm64` |
+| Windows x64 | `@mana-app/dev-win32-x64` |
+| macOS x64 | `@mana-app/dev-darwin-x64` |
+| macOS ARM64 (Apple Silicon) | `@mana-app/dev-darwin-arm64` |
+| Linux x64 | `@mana-app/dev-linux-x64` |
+| Linux ARM64 | `@mana-app/dev-linux-arm64` |

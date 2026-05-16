@@ -2,15 +2,53 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
+  tag:
+    name: Create version tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      tag_exists: ${{ steps.check_tag.outputs.tag_exists }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from package.json
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./npm/mana-dev/package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ steps.get_version.outputs.version }}" >/dev/null 2>&1; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "Tag v${{ steps.get_version.outputs.version }} already exists — skipping release"
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag
+        if: steps.check_tag.outputs.tag_exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.get_version.outputs.version }}"
+          git push origin "v${{ steps.get_version.outputs.version }}"
+
   build:
     name: Build ${{ matrix.target }}
+    needs: tag
+    if: needs.tag.outputs.tag_exists == 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -107,21 +145,22 @@ jobs:
           chmod +x npm/${{ matrix.npm_pkg }}/${{ matrix.mana_watcher_bin }} || true
 
       # ── Publish platform package ──────────────────────────────────────────
-      - name: Publish @mana/${{ matrix.npm_pkg }}
-        working-directory: npm/${{ matrix.npm_pkg }}
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Setup Node for publish
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Publish @mana-app/${{ matrix.npm_pkg }}
+        working-directory: npm/${{ matrix.npm_pkg }}
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
   publish-main:
     name: Publish @mana/dev
-    needs: build
+    needs: [tag, build]
+    if: needs.tag.outputs.tag_exists == 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -131,7 +170,7 @@ jobs:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Publish @mana/dev
+      - name: Publish @mana-app/dev
         working-directory: npm/mana-dev
         run: npm publish --access public
         env:

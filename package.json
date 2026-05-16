@@ -1,8 +1,8 @@
 {
-  "name": "mana-runtimecompare",
-  "version": "1.0.0",
-  "description": "A Rust tool that executes JavaScript (.mana) files using the V8 JavaScript engine to evaluate mana packages and extract their metadata and performance characteristics.",
-  "main": "dependencies.js",
+  "name": "@mana-app/dev",
+  "version": "0.1.0",
+  "description": "Mana development toolchain — builds and serves .mana source packages using Rust + V8 + Go",
+  "private": true,
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
