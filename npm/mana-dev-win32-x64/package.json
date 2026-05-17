@@ -1,6 +1,6 @@
 {
   "name": "@mana-app/dev-win32-x64",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Mana dev toolchain binaries for Windows x64",
   "license": "ISC",
   "os": [
