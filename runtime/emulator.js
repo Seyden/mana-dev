@@ -1,3 +1,26 @@
+// Buffer polyfill for bare V8 environment (no Node.js, no TextEncoder)
+if (typeof globalThis.Buffer === 'undefined') {
+  globalThis.Buffer = {
+    from: (data, encoding) => {
+      if (typeof data === 'string') {
+        const arr = [];
+        for (let i = 0; i < data.length; i++) arr.push(data.charCodeAt(i) & 0xff);
+        return new Uint8Array(arr);
+      }
+      return new Uint8Array(data);
+    },
+    alloc: (size) => new Uint8Array(size),
+    isBuffer: (obj) => obj instanceof Uint8Array,
+    concat: (buffers) => {
+      const total = buffers.reduce((acc, b) => acc + b.length, 0);
+      const result = new Uint8Array(total);
+      let offset = 0;
+      for (const b of buffers) { result.set(b, offset); offset += b.length; }
+      return result;
+    },
+  };
+}
+
 // axios-stub:axios
 var axios = function(config) {
   return Promise.resolve({

@@ -219,6 +219,7 @@ struct BuildResult {
     success: bool,
     errors: Option<Vec<String>>,
     warnings: Option<Vec<String>>,
+    #[serde(default)]
     files: Vec<String>,
     timestamp: String,
     build_time_ms: i64,

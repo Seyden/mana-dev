@@ -31,17 +31,7 @@ impl V8Engine {
         let fresh_context = v8::Context::new(handle_scope, context_options);
         let scope = &mut v8::ContextScope::new(handle_scope, fresh_context);
 
-        // Execute as regular script
-        let final_js_code = js_code.to_string();
-        
-        let code = v8::String::new(scope, &final_js_code)
-            .ok_or_else(|| anyhow!("Failed to create V8 string from JS code"))?;
-        let script = v8::Script::compile(scope, code, None)
-            .ok_or_else(|| anyhow!("Failed to compile script"))?;
-        script.run(scope)
-            .ok_or_else(|| anyhow!("Failed to execute script"))?;
-
-        // Load emulator and target processor for this script execution context
+        // Load emulator first so polyfills (Buffer, etc.) are available when user script runs
         match super::emulator::load_emulator_in_scope(scope) {
             Ok(_) => {
                 // Verify core functions are available
@@ -56,6 +46,16 @@ impl V8Engine {
                 return Err(e);
             }
         }
+
+        // Execute user script after emulator polyfills are in place
+        let final_js_code = js_code.to_string();
+        
+        let code = v8::String::new(scope, &final_js_code)
+            .ok_or_else(|| anyhow!("Failed to create V8 string from JS code"))?;
+        let script = v8::Script::compile(scope, code, None)
+            .ok_or_else(|| anyhow!("Failed to compile script"))?;
+        script.run(scope)
+            .ok_or_else(|| anyhow!("Failed to execute script"))?;
 
         // Extract target info - use processTarget if available, otherwise fallback to emulate
         let result_code = 
