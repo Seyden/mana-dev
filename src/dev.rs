@@ -378,14 +378,16 @@ async fn run_esbuild(cfg: ManaConfig, watch: bool, skip_initial_build: bool) -> 
     let source = cfg.src.clone();
     let output = cfg.out.clone();
 
-    // Temp dir lives inside the source directory, matching the Go default.
+    // Temp dir lives at the project root (parent of src), not inside src/.
     // Using an absolute path ensures both processes agree regardless of cwd.
-    let temp_dir = std::path::Path::new(&source).join(".mana-temp");
-    let temp_dir = if temp_dir.is_absolute() {
-        temp_dir
+    let src_path = std::path::Path::new(&source);
+    let src_abs = if src_path.is_absolute() {
+        src_path.to_path_buf()
     } else {
-        std::env::current_dir()?.join(temp_dir)
+        std::env::current_dir()?.join(src_path)
     };
+    let project_root = src_abs.parent().unwrap_or(&src_abs).to_path_buf();
+    let temp_dir = project_root.join(".mana-temp");
 
     // Build the argument list for mana-watcher
     let mut watcher_args: Vec<String> = vec![
@@ -535,8 +537,12 @@ async fn process_build_result(output_path: &PathBuf, build_result: &BuildResult)
     // Must match the temp path derived in run_esbuild.
     let source = MANA_CONFIG.get().map(|(cfg, _)| cfg.src.as_str()).unwrap_or(".");
     let temp_dir = {
-        let p = std::path::Path::new(source).join(".mana-temp");
-        if p.is_absolute() { p } else { std::env::current_dir()?.join(p) }
+        let src_abs = {
+            let p = std::path::Path::new(source);
+            if p.is_absolute() { p.to_path_buf() } else { std::env::current_dir()?.join(p) }
+        };
+        let project_root = src_abs.parent().unwrap_or(&src_abs).to_path_buf();
+        project_root.join(".mana-temp")
     };
     
     // Prepare temp files for delegate processing (no bulk copying here)

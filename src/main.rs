@@ -156,8 +156,14 @@ async fn build_command(no_repo: bool, folder: Option<String>, output: Option<Str
     // Use native rolldown bulk bundling with self-contained IIFE configuration
     v8::bulk_build_emulator_native_standalone(entry_points, &out_dir).await?;
     
-    // Copy assets if they exist
-    let assets_dir = base_path.join("assets");
+    // Copy assets from project root (parent of src/), not from inside src/
+    let src_abs = if Path::new(&source_path).is_absolute() {
+        Path::new(&source_path).to_path_buf()
+    } else {
+        base_path.join(&source_path)
+    };
+    let project_root = src_abs.parent().unwrap_or(&src_abs).to_path_buf();
+    let assets_dir = project_root.join("assets");
     if assets_dir.exists() {
         let dest_assets = Path::new(&out_dir).join("assets");
         copy_dir_recursive(&assets_dir, &dest_assets)?;
