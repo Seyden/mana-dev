@@ -1,6 +1,6 @@
 {
   "name": "@mana-app/dev-darwin-arm64",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Mana dev toolchain binaries for macOS Apple Silicon",
   "license": "ISC",
   "os": [
