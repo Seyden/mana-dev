@@ -1,11 +1,11 @@
 {
   "name": "@mana-app/dev",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Mana development toolchain — build and serve .mana source packages",
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/mana-dev"
+    "url": "https://github.com/Mana-iOS/mana-dev"
   },
   "bin": {
     "mana-dev": "bin/mana-dev"
