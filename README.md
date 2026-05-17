@@ -5,7 +5,7 @@ Build toolchain for [Mana](https://github.com/Mana-iOS/) source packages. Compil
 ## Installation
 
 ```bash
-npm install -D @mana-app/dev
+npm install -g @mana-app/dev
 ```
 
 No additional runtime dependencies. The correct native binary for your platform is installed automatically.
