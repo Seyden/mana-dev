@@ -1,10 +1,10 @@
 [package]
-name = "mana-runtime-compare"
-version = "0.1.0"
+name = "mana-dev"
+version = "0.1.7"
 edition = "2021"
 
 [[bin]]
-name = "mana-runtime-compare"
+name = "mana-dev"
 path = "src/main.rs"
 
 [[bin]]

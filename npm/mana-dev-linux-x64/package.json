@@ -1,6 +1,6 @@
 {
   "name": "@mana-app/dev-linux-x64",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Mana dev toolchain binaries for Linux x64",
   "license": "ISC",
   "os": [

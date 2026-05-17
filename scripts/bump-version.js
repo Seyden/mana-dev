@@ -9,6 +9,9 @@ if (!newVersion || !/^\d+\.\d+\.\d+$/.test(newVersion)) {
   process.exit(1);
 }
 
+const root = path.resolve(__dirname, "..");
+
+// Bump all npm package.json files
 const packages = [
   ".",
   "npm/mana-dev",
@@ -18,8 +21,6 @@ const packages = [
   "npm/mana-dev-linux-x64",
   "npm/mana-dev-linux-arm64",
 ];
-
-const root = path.resolve(__dirname, "..");
 
 for (const pkg of packages) {
   const pkgPath = path.join(root, pkg, "package.json");
@@ -33,3 +34,10 @@ for (const pkg of packages) {
   fs.writeFileSync(pkgPath, JSON.stringify(json, null, 2) + "\n");
   console.log(`bumped ${json.name} → ${newVersion}`);
 }
+
+// Bump Cargo.toml
+const cargoPath = path.join(root, "Cargo.toml");
+let cargo = fs.readFileSync(cargoPath, "utf8");
+cargo = cargo.replace(/^version = "[\d.]+"/m, `version = "${newVersion}"`);
+fs.writeFileSync(cargoPath, cargo);
+console.log(`bumped Cargo.toml → ${newVersion}`);
