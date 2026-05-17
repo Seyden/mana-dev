@@ -146,7 +146,8 @@ jobs:
 
       - name: Publish @mana-app/${{ matrix.npm_pkg }}
         working-directory: npm/${{ matrix.npm_pkg }}
-        run: npm publish --access public || echo "Already published, skipping"
+        continue-on-error: true
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -180,6 +181,7 @@ jobs:
 
       - name: Publish @mana-app/dev
         working-directory: npm/mana-dev
-        run: npm publish --access public || echo "Already published, skipping"
+        continue-on-error: true
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
