@@ -584,7 +584,19 @@ async fn process_build_result(output_path: &PathBuf, build_result: &BuildResult)
             return Err(anyhow!("Failed to process files with bulk emulator: {}", e));
         }
     }
-    
+
+    // Copy assets/ from project root (sibling of src/) to output directory
+    let src_abs = {
+        let p = std::path::Path::new(source);
+        if p.is_absolute() { p.to_path_buf() } else { std::env::current_dir()?.join(p) }
+    };
+    let project_root = src_abs.parent().unwrap_or(&src_abs);
+    let assets_src = project_root.join("assets");
+    if assets_src.exists() {
+        let assets_dst = output_path.join("assets");
+        copy_dir_recursive(&assets_src, &assets_dst)?;
+    }
+
     Ok(())
 }
 
@@ -687,6 +699,21 @@ async fn serve_command(cfg: ManaConfig, port: u16, watch: bool) -> Result<()> {
 
     axum::serve(listener, app).await?;
     
+    Ok(())
+}
+
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let path = entry.path();
+        let dest = dst.join(entry.file_name());
+        if path.is_dir() {
+            copy_dir_recursive(&path, &dest)?;
+        } else {
+            std::fs::copy(&path, &dest)?;
+        }
+    }
     Ok(())
 }
 
