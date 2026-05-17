@@ -1,9 +1,10 @@
 {
   "name": "@mana-app/dev",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Mana development toolchain — builds and serves .mana source packages using Rust + V8 + Go",
   "private": true,
   "scripts": {
+    "bump": "node scripts/bump-version.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

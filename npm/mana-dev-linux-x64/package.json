@@ -1,10 +1,14 @@
 {
   "name": "@mana-app/dev-linux-x64",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Mana dev toolchain binaries for Linux x64",
   "license": "ISC",
-  "os": ["linux"],
-  "cpu": ["x64"],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "files": [
     "mana-dev",
     "mana-watcher"

@@ -1,10 +1,14 @@
 {
   "name": "@mana-app/dev-win32-x64",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Mana dev toolchain binaries for Windows x64",
   "license": "ISC",
-  "os": ["win32"],
-  "cpu": ["x64"],
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "files": [
     "mana-dev.exe",
     "mana-watcher.exe"
