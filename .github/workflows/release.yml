@@ -111,6 +111,7 @@ jobs:
         run: cargo build --release --bin mana-dev --target ${{ matrix.rust_target }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          RUSTFLAGS: "-C target-cpu=x86-64-v2 -C target-feature=+crt-static"
 
       # ── Go ────────────────────────────────────────────────────────────────
       - name: Install Go

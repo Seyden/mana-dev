@@ -1,6 +1,6 @@
 {
   "name": "@mana-app/dev",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Mana development toolchain — builds and serves .mana source packages using Rust + V8 + Go",
   "private": true,
   "scripts": {
