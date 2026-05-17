@@ -19,7 +19,7 @@ npm/mana-dev-linux-arm64/mana-dev
 npm/mana-dev-linux-arm64/mana-watcher
 
 # Main package resolved bin/ (symlinks created by install)
-npm/mana-dev/bin/
+npm/mana-dev/bin/mana-dev
 
 # Build temp files
 .mana-temp/
