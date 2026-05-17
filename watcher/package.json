@@ -1,0 +1,15 @@
+{
+  "name": "@mana-app/watcher-scripts",
+  "private": true,
+  "scripts": {
+    "bundle-polyfills": "node scripts/bundle-polyfills.js"
+  },
+  "devDependencies": {
+    "buffer": "*",
+    "esbuild": "*",
+    "events": "*",
+    "path-browserify": "*",
+    "process": "*",
+    "util": "*"
+  }
+}

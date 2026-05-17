@@ -227,6 +227,8 @@ func performBuild(config Config) BuildResult {
 		outputFiles = append(outputFiles, uniqueID+".js")
 	}
 
+	plugin, banner := nodeBuiltinsPlugin()
+
 	// ESBuild configuration with entry points advanced
 	buildOptions := api.BuildOptions{
 		EntryPointsAdvanced: entryPoints,
@@ -234,6 +236,7 @@ func performBuild(config Config) BuildResult {
 		Bundle:              true,
 		Write:               true,
 		Platform:            getPlatform(config.Platform),
+		MainFields:          []string{"browser", "module", "main"},
 		Format:              api.FormatIIFE,
 		Target:              getTarget(config.Target),
 		MinifyWhitespace:    config.Minify,
@@ -242,9 +245,11 @@ func performBuild(config Config) BuildResult {
 		Sourcemap:           api.SourceMapNone,
 		LogLevel:            api.LogLevelWarning,
 		LegalComments:       api.LegalCommentsNone,
-		//DisableEntryPointTail: true,
 		GlobalName: "__exports__",
 		Footer:     map[string]string{"js": "globalThis.Target=__exports__.Target;"},
+		Banner:     map[string]string{"js": banner},
+		// Redirect Node.js built-in imports to pre-bundled browser polyfills
+		Plugins: []api.Plugin{plugin},
 	}
 
 	// Perform the build
@@ -353,4 +358,46 @@ func outputResult(result BuildResult) {
 
 	// Output JSON result to stdout for Rust to parse (without prefix)
 	fmt.Println(string(jsonData))
+}
+
+// nodeBuiltinsPlugin returns an esbuild plugin that redirects imports of known
+// Node built-ins to shims, plus the combined banner string to inject as Banner.
+// The banner must be set directly on BuildOptions — setting it inside OnStart is too late.
+func nodeBuiltinsPlugin() (api.Plugin, string) {
+	order := []string{"buffer", "process", "events", "path", "util"}
+	var bannerParts []string
+	for _, name := range order {
+		if code, ok := nodePolyfills[name]; ok && code != "" {
+			bannerParts = append(bannerParts, code)
+		}
+	}
+	banner := strings.Join(bannerParts, "\n")
+
+	shimExports := map[string]string{
+		"buffer":  "export const Buffer = globalThis.Buffer; export default globalThis.Buffer;",
+		"process": "export default globalThis.process; export const env = globalThis.process?.env ?? {};",
+		"events":  "export const EventEmitter = globalThis.EventEmitter; export default globalThis.EventEmitter;",
+		"path":    "export default globalThis.path; export const { join, resolve, basename, dirname, extname, sep } = globalThis.path ?? {};",
+		"util":    "export default globalThis.util; export const { promisify, inspect, format } = globalThis.util ?? {};",
+	}
+
+	plugin := api.Plugin{
+		Name: "node-builtins-polyfill",
+		Setup: func(build api.PluginBuild) {
+			nodeModuleFilter := `^(buffer|process|events|path|util)$`
+			build.OnResolve(api.OnResolveOptions{Filter: nodeModuleFilter}, func(args api.OnResolveArgs) (api.OnResolveResult, error) {
+				return api.OnResolveResult{Path: args.Path, Namespace: "node-polyfill-shim"}, nil
+			})
+			build.OnLoad(api.OnLoadOptions{Filter: `.*`, Namespace: "node-polyfill-shim"}, func(args api.OnLoadArgs) (api.OnLoadResult, error) {
+				shim, ok := shimExports[args.Path]
+				if !ok {
+					empty := ""
+					return api.OnLoadResult{Contents: &empty, Loader: api.LoaderJS}, nil
+				}
+				return api.OnLoadResult{Contents: &shim, Loader: api.LoaderJS}, nil
+			})
+		},
+	}
+
+	return plugin, banner
 }

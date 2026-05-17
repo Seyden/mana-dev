@@ -29,6 +29,9 @@ npm/mana-dev/bin/mana-dev
 node_modules/
 npm-debug.log*
 
+# Generated Go polyfills (rebuilt by scripts/bundle-polyfills.js)
+watcher/polyfills_generated.go
+
 # Logs and scratch
 timing.log
 *.log
