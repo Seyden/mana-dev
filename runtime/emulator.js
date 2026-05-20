@@ -333,6 +333,39 @@ function emulate(v) {
   });
   return target;
 }
+
+function bit(position) {
+  return 1 << position;
+}
+
+const Intents = {
+  preferenceMenuBuilder: 0,
+  requiresSetup: 1,
+  imageRequestHandler: 2,
+  pageLinkResolver: 3,
+  libraryPageLinkProvider: 4,
+  authenticatable: 5,
+  basicAuth: 6,
+  basicAuthUsesEmail: 7,
+  webviewAuth: 8,
+  oauthAuth: 9,
+  providesSearch: 10,
+  providesSearchForm: 11,
+  providesSearchSortOptions: 12,
+  chapterEventHandler: 13,
+  contentEventHandler: 14,
+  librarySyncHandler: 15,
+  pageReadHandler: 16,
+  progressSyncHandler: 17,
+  groupedUpdateFetcher: 18,
+  redrawingHandler: 19,
+  chaptersInContent: 20,
+  providesChapters: 21,
+  canHandleURL: 22,
+  allowsMultipleInstances: 23,
+  requiresAuthenticationToAccessContent: 24
+};
+
 function evaluateIntents(target, sourceEnvironment) {
   if (!target) return { flags: 0 };
   let flags = 0;
@@ -340,100 +373,88 @@ function evaluateIntents(target, sourceEnvironment) {
   if (target.config) {
     sourceConfig = target.config;
   }
-  if (target.getPreferenceMenu) flags |= 1 /* PREFERENCE_MENU_BUILDER */;
+  if (target.getPreferenceMenu) flags |= bit(Intents.preferenceMenuBuilder);
   if (target.getSetupMenu && target.validateSetupForm && target.isRunnerSetup) {
-    flags |= 2 /* REQUIRES_SETUP */;
+    flags |= bit(Intents.requiresSetup);
   }
-  if (target.willRequestImage) flags |= 4 /* IMAGE_REQUEST_HANDLER */;
+  if (target.willRequestImage) flags |= bit(Intents.imageRequestHandler);
   if (target.getSectionsForPage && target.resolvePageSection) {
-    flags |= 8 /* PAGE_LINK_RESOLVER */;
+    flags |= bit(Intents.pageLinkResolver);
   }
-  if (target.getLibraryPageLinks) flags |= 16 /* LIBRARY_PAGE_LINK_PROVIDER */;
+  if (target.getLibraryPageLinks) flags |= bit(Intents.libraryPageLinkProvider);
   const sourceAuthenticatable = !!(target.getAuthenticatedUser && target.handleUserSignOut);
   const basicAuthenticatable = !!target.handleBasicAuth;
   const webViewAuthenticatable = !!(target.getWebAuthRequestURL && target.didReceiveSessionCookieFromWebAuthResponse);
   const oAuthAuthenticatable = !!(target.getOAuthRequestURL && target.handleOAuthCallback);
   const authenticatable = basicAuthenticatable || webViewAuthenticatable || oAuthAuthenticatable;
   if (sourceAuthenticatable && authenticatable) {
-    flags |= 32 /* AUTHENTICATABLE */;
+    flags |= bit(Intents.authenticatable);
     if (basicAuthenticatable) {
-      flags |= 64 /* BASIC_AUTH */;
+      flags |= bit(Intents.basicAuth);
+      if (target.BasicAuthenticationUIIdentifier === BasicAuthenticationUIIdentifier.EMAIL) {
+        flags |= bit(Intents.basicAuthUsesEmail);
+      }
     } else if (webViewAuthenticatable) {
-      flags |= 128 /* WEBVIEW_AUTH */;
+      flags |= bit(Intents.webviewAuth);
     } else if (oAuthAuthenticatable) {
-      flags |= 256 /* OAUTH_AUTH */;
-    }
-    if (basicAuthenticatable) {
-      flags |= 64 /* BASIC_AUTH */;
-      if (target.BasicAuthenticationUIIdentifier === BasicAuthenticationUIIdentifier.USERNAME) {
-        flags |= 512 /* BASIC_AUTH_USES_USERNAME */;
-      }
+      flags |= bit(Intents.oauthAuth);
     }
   }
-  if (sourceEnvironment === "source") {
+  if (target.search) flags |= bit(Intents.providesSearch);
+  if (target.getSearchForm) flags |= bit(Intents.providesSearchForm);
+  if (target.getSortOptions) {
+    flags |= bit(Intents.providesSearchSortOptions);
+  }
+  if (target.getContent) {
     if (target.onChaptersMarked && target.onChapterRead) {
-      flags |= 1024 /* CHAPTER_EVENT_HANDLER */;
+      flags |= bit(Intents.chapterEventHandler);
     }
-    if (target.onContentsAddedToLibrary && target.onContentsRemovedFromLibrary && target.onContentsReadingFlagChanged) {
-      flags |= 2048 /* CONTENT_EVENT_HANDLER */;
+    if (target.onContentsAddedToLibrary && target.onContentsRemovedFromLibrary) {
+      flags |= bit(Intents.contentEventHandler);
     }
-    if (target.syncUserLibrary) flags |= 4096 /* LIBRARY_SYNC_HANDLER */;
-    if (target.createExploreCollections && target.resolveExploreCollection) {
-      flags |= 8192 /* EXPLORE_PAGE_HANDLER */;
-    }
-    if (target.getTags) flags |= 16384 /* HAS_TAGS_VIEW */;
-    if (target.onPageRead) flags |= 32768 /* PAGE_READ_HANDLER */;
-    if (target.provideReaderContext) flags |= 65536 /* PROVIDES_READER_CONTEXT */;
-    if (target.getContextActions && target.didTriggerContextAction) {
-      flags |= 131072 /* IS_CONTEXT_MENU_PROVIDER */;
-    }
-    if (target.getHighlight) flags |= 262144 /* CAN_REFRESH_HIGHLIGHT */;
-    if (target.getProgressState) flags |= 524288 /* PROGRESS_SYNC_HANDLER */;
-    if (target.getGroupedUpdates) flags |= 1048576 /* GROUPED_UPDATE_FETCHER */;
+    if (target.syncUserLibrary) flags |= bit(Intents.librarySyncHandler);
+    if (target.onPageRead) flags |= bit(Intents.pageReadHandler);
+    if (target.getProgressState) flags |= bit(Intents.progressSyncHandler);
+    if (target.getGroupedUpdates) flags |= bit(Intents.groupedUpdateFetcher);
     if (target.shouldRedrawImage && target.redrawImageWithSize) {
-      flags |= 2097152 /* IS_REDRAWING_HANDLER */;
+      flags |= bit(Intents.redrawingHandler);
     }
-    if (target.getContent) {
-      let providesChapters = target.getChapterData;
-      if (providesChapters) {
-        flags |= 536870912 /* PROVIDES_CHAPTERS */;
-      }
-      if (!target.getChapters && providesChapters) {
-        flags |= 4194304 /* CHAPTERS_IN_CONTENT */;
-      }
+
+    let providesChapters = target.getChapterData;
+    if (providesChapters) {
+      flags |= bit(Intents.providesChapters);
     }
-  }
-  if (sourceEnvironment === "tracker") {
-    if (target.getDirectory && target.getDirectoryConfig && target.getFullInformation) {
-      flags |= 8388608 /* ADVANCED_TRACKER */;
+    if (!target.getChapters && providesChapters) {
+      flags |= bit(Intents.chaptersInContent);
     }
   }
-  if (target.handleURL) flags |= 16777216 /* CAN_HANDLE_URL */;
+  if (target.handleURL) flags |= bit(Intents.canHandleURL);
   if (sourceConfig) {
     if (sourceConfig.allowsMultipleInstances) {
-      flags |= 33554432 /* ALLOWS_MULTIPLE_INSTANCES */;
+      flags |= bit(Intents.allowsMultipleInstances);
     }
     if (sourceConfig.requiresAuthenticationToAccessContent) {
-      flags |= 67108864 /* REQUIRES_AUTHENTICATION_TO_ACCESS_CONTENT */;
+      flags |= bit(Intents.requiresAuthenticationToAccessContent);
     }
-    if (sourceConfig.disableUpdateChecks) {
-      flags |= 134217728 /* DISABLE_UPDATE_CHECKS */;
-    }
-    if (sourceConfig.disableTagNavigation) {
-      flags |= 268435456 /* DISABLE_TAG_NAVIGATION */;
-    }
+
   }
   return { flags };
 }
+
 function evaluateEnvironment(target) {
   if (!target) return "unknown";
-  if (target.getContent && //SourceObject.getChapters && // getChapters is optional when chapters are provided in getContent
-  target.getChapterData)
-    return "source";
-  if (target.didUpdateLastReadChapter && target.getResultsForTitles && target.getTrackItem && target.beginTracking && target.getEntryForm && target.didSubmitEntryForm)
+
+  if (target.getContent 
+    && target.search 
+    && target.didUpdateLastReadChapter 
+    && target.didUpdateStatus 
+    && target.getEntryForm 
+    && target.didSubmitEntryForm)
     return "tracker";
-  return "unknown";
+  
+  return "source";
 }
+
 var index_default = emulate;
 export {
   index_default as default,
