@@ -154,15 +154,13 @@ jobs:
       - name: Setup Node for publish
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
       - name: Publish @mana-app/${{ matrix.npm_pkg }}
         working-directory: npm/${{ matrix.npm_pkg }}
         continue-on-error: true
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   tag:
     name: Create version tag
@@ -189,12 +187,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
       - name: Publish @mana-app/dev
         working-directory: npm/mana-dev
         continue-on-error: true
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

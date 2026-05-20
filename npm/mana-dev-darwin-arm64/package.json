@@ -3,6 +3,10 @@
   "version": "0.1.13",
   "description": "Mana dev toolchain binaries for macOS Apple Silicon",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mana-iOS/mana-dev"
+  },
   "os": [
     "darwin"
   ],
